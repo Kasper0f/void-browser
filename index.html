@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARC Browser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0d0f;
+      --surface:  #16161a;
+      --panel:    #1c1c22;
+      --border:   #2a2a35;
+      --accent:   #7c5cfc;
+      --accent2:  #c084fc;
+      --text:     #e8e8f0;
+      --muted:    #6b6b80;
+      --danger:   #fc5c7d;
+      --tab-h:    38px;
+      --sidebar-w: 240px;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      user-select: none;
+    }
+
+    /* ── TITLEBAR ──────────────────────────────── */
+    #titlebar {
+      -webkit-app-region: drag;
+      height: 44px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 100;
+    }
+    #titlebar .logo {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-right: 6px;
+    }
+    #titlebar .spacer { flex: 1; }
+    .wm-btn {
+      -webkit-app-region: no-drag;
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      border: none;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s;
+    }
+    .wm-btn:hover { background: var(--border); color: var(--text); }
+    .wm-btn.close:hover { background: var(--danger); color: #fff; }
+
+    /* ── LAYOUT ────────────────────────────────── */
+    #layout {
+      display: flex;
+      height: calc(100vh - 44px);
+    }
+
+    /* ── SIDEBAR ───────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    #tabs-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 8px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    #tabs-container::-webkit-scrollbar { width: 4px; }
+    #tabs-container::-webkit-scrollbar-track { background: transparent; }
+    #tabs-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .tab-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .12s;
+      min-height: 40px;
+      position: relative;
+      border: 1px solid transparent;
+    }
+    .tab-item:hover { background: var(--panel); }
+    .tab-item.active {
+      background: linear-gradient(135deg, rgba(124,92,252,0.18), rgba(192,132,252,0.1));
+      border-color: rgba(124,92,252,0.35);
+    }
+    .tab-favicon {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      object-fit: contain;
+    }
+    .tab-favicon-placeholder {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      background: var(--border);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: var(--muted);
+    }
+    .tab-title {
+      flex: 1;
+      font-size: 12.5px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+    }
+    .tab-item:not(.active) .tab-title { color: var(--muted); }
+    .tab-close {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transition: opacity .12s, background .12s;
+      flex-shrink: 0;
+    }
+    .tab-item:hover .tab-close { opacity: 1; }
+    .tab-close:hover { background: rgba(252,92,125,0.2); color: var(--danger); }
+    .tab-loading {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #new-tab-btn {
+      margin: 8px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 7px;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    #new-tab-btn:hover {
+      background: var(--panel);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── MAIN AREA ─────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── NAVBAR ────────────────────────────────── */
+    #navbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .12s, color .12s;
+      flex-shrink: 0;
+    }
+    .nav-btn:hover:not(:disabled) { background: var(--border); color: var(--text); }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+    #url-bar-wrap {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    #url-icon {
+      position: absolute;
+      left: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    #url-bar {
+      width: 100%;
+      height: 34px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 36px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12.5px;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    #url-bar:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,92,252,0.15);
+    }
+    #url-bar::placeholder { color: var(--muted); font-family: 'Syne', sans-serif; }
+
+    /* ── WEBVIEW AREA ──────────────────────────── */
+    #webview-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    webview {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      border: none;
+      display: none;
+    }
+    webview.active { display: block; }
+
+    /* ── NEW TAB PAGE ──────────────────────────── */
+    #newtab-page {
+      position: absolute;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+    }
+    #newtab-page.hidden { display: none; }
+    .nt-logo {
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .nt-search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 16px;
+      width: 480px;
+      transition: border-color .15s;
+    }
+    .nt-search-wrap:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(124,92,252,0.12);
+    }
+    .nt-search-icon { color: var(--muted); font-size: 15px; }
+    #nt-search {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+    }
+    #nt-search::placeholder { color: var(--muted); }
+    .nt-shortcuts {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 520px;
+    }
+    .nt-shortcut {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, transform .12s;
+      min-width: 72px;
+    }
+    .nt-shortcut:hover {
+      background: var(--panel);
+      border-color: rgba(124,92,252,0.4);
+      transform: translateY(-2px);
+    }
+    .nt-shortcut-icon { font-size: 22px; }
+    .nt-shortcut-label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+    .nt-time {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ── CONTEXT MENU ──────────────────────────── */
+    #ctx-menu {
+      position: fixed;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      z-index: 9999;
+      display: none;
+      min-width: 150px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    #ctx-menu.show { display: block; }
+    .ctx-item {
+      padding: 7px 12px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      transition: background .1s;
+    }
+    .ctx-item:hover { background: var(--border); }
+    .ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
+
+    /* ── SCROLLBAR GLOBAL ──────────────────────── */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TITLEBAR -->
+<div id="titlebar">
+  <span class="logo">⬡ VOID</span>
+  <div class="spacer"></div>
+  <button class="wm-btn" id="btn-min" title="Свернуть">─</button>
+  <button class="wm-btn" id="btn-max" title="Развернуть">□</button>
+  <button class="wm-btn close" id="btn-close" title="Закрыть">✕</button>
+</div>
+
+<!-- LAYOUT -->
+<div id="layout">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="tabs-container"></div>
+    <button id="new-tab-btn">＋ Новая вкладка</button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- NAVBAR -->
+    <div id="navbar">
+      <button class="nav-btn" id="btn-back" title="Назад">‹</button>
+      <button class="nav-btn" id="btn-fwd" title="Вперёд">›</button>
+      <button class="nav-btn" id="btn-reload" title="Обновить">↻</button>
+      <div id="url-bar-wrap">
+        <span id="url-icon">🔒</span>
+        <input id="url-bar" type="text" placeholder="Введи URL или запрос..." spellcheck="false" />
+      </div>
+    </div>
+
+    <!-- WEBVIEWS -->
+    <div id="webview-container">
+      <div id="newtab-page">
+        <div class="nt-logo">VOID</div>
+        <div class="nt-time" id="nt-clock"></div>
+        <div class="nt-search-wrap">
+          <span class="nt-search-icon">🔍</span>
+          <input id="nt-search" type="text" placeholder="Поиск или адрес сайта..." />
+        </div>
+        <div class="nt-shortcuts">
+          <div class="nt-shortcut" data-url="https://google.com">
+            <span class="nt-shortcut-icon">🌐</span>
+            <span class="nt-shortcut-label">Google</span>
+          </div>
+          <div class="nt-shortcut" data-url="https://vk.com">
+            <span class="nt-shortcut-icon">💬</span>
+            <span class="nt-shortcut-label">VK</span>
+          </div>
+          <div class="nt-shortcut" data-url="https://youtube.com">
+            <span class="nt-shortcut-icon">▶️</span>
+            <span class="nt-shortcut-label">YouTube</span>
+          </div>
+          <div class="nt-shortcut" data-url="https://github.com">
+            <span class="nt-shortcut-icon">🐙</span>
+            <span class="nt-shortcut-label">GitHub</span>
+          </div>
+          <div class="nt-shortcut" data-url="https://habr.com">
+            <span class="nt-shortcut-icon">📰</span>
+            <span class="nt-shortcut-label">Habr</span>
+          </div>
+          <div class="nt-shortcut" data-url="https://t.me">
+            <span class="nt-shortcut-icon">✈️</span>
+            <span class="nt-shortcut-label">Telegram</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-new-tab">＋ Новая вкладка</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-reload">↻ Обновить</div>
+  <div class="ctx-item" id="ctx-copy-url">🔗 Копировать URL</div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+// ── State ────────────────────────────────────────
+let tabs = [];
+let activeTabId = null;
+let tabCounter = 0;
+
+// ── DOM refs ─────────────────────────────────────
+const tabsContainer = document.getElementById('tabs-container');
+const webviewContainer = document.getElementById('webview-container');
+const urlBar = document.getElementById('url-bar');
+const newTabPage = document.getElementById('newtab-page');
+const ntSearch = document.getElementById('nt-search');
+const ntClock = document.getElementById('nt-clock');
+const btnBack = document.getElementById('btn-back');
+const btnFwd = document.getElementById('btn-fwd');
+const btnReload = document.getElementById('btn-reload');
+const ctxMenu = document.getElementById('ctx-menu');
+
+// ── Clock ─────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  ntClock.textContent = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Tab management ────────────────────────────────
+function createTab(url = '') {
+  const id = ++tabCounter;
+  const tab = { id, url, title: 'Новая вкладка', favicon: null, loading: false, webview: null };
+  tabs.push(tab);
+
+  // Create webview
+  const wv = document.createElement('webview');
+  wv.setAttribute('allowpopups', '');
+  wv.setAttribute('webpreferences', 'javascript=yes');
+  if (url) wv.setAttribute('src', url);
+  webviewContainer.appendChild(wv);
+  tab.webview = wv;
+
+  // Webview events
+  wv.addEventListener('did-start-loading', () => {
+    tab.loading = true;
+    renderTabs();
+  });
+  wv.addEventListener('did-stop-loading', () => {
+    tab.loading = false;
+    tab.title = wv.getTitle() || tab.url || 'Новая вкладка';
+    tab.url = wv.getURL();
+    renderTabs();
+    if (activeTabId === id) syncNavbar();
+  });
+  wv.addEventListener('page-title-updated', (e) => {
+    tab.title = e.title;
+    renderTabs();
+  });
+  wv.addEventListener('page-favicon-updated', (e) => {
+    if (e.favicons && e.favicons.length > 0) {
+      tab.favicon = e.favicons[0];
+      renderTabs();
+    }
+  });
+  wv.addEventListener('did-navigate', (e) => {
+    tab.url = e.url;
+    if (activeTabId === id) syncNavbar();
+  });
+  wv.addEventListener('new-window', (e) => {
+    createTab(e.url);
+    switchTab(tabs[tabs.length - 1].id);
+  });
+
+  switchTab(id);
+  renderTabs();
+  return tab;
+}
+
+function closeTab(id) {
+  const idx = tabs.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  const tab = tabs[idx];
+  tab.webview.remove();
+  tabs.splice(idx, 1);
+  if (tabs.length === 0) {
+    activeTabId = null;
+    newTabPage.classList.remove('hidden');
+    urlBar.value = '';
+  } else {
+    const nextTab = tabs[Math.min(idx, tabs.length - 1)];
+    switchTab(nextTab.id);
+  }
+  renderTabs();
+}
+
+function switchTab(id) {
+  activeTabId = id;
+  tabs.forEach(t => {
+    t.webview.classList.toggle('active', t.id === id);
+  });
+  const tab = tabs.find(t => t.id === id);
+  if (tab) {
+    newTabPage.classList.toggle('hidden', !!tab.url);
+    syncNavbar();
+  }
+  renderTabs();
+}
+
+function syncNavbar() {
+  const tab = tabs.find(t => t.id === activeTabId);
+  if (!tab) return;
+  urlBar.value = tab.url || '';
+  const wv = tab.webview;
+  btnBack.disabled = !wv.canGoBack?.();
+  btnFwd.disabled = !wv.canGoForward?.();
+  const isSecure = tab.url?.startsWith('https://');
+  document.getElementById('url-icon').textContent = isSecure ? '🔒' : '🌐';
+}
+
+function renderTabs() {
+  tabsContainer.innerHTML = '';
+  tabs.forEach(tab => {
+    const el = document.createElement('div');
+    el.className = 'tab-item' + (tab.id === activeTabId ? ' active' : '');
+    el.dataset.id = tab.id;
+
+    // Favicon
+    if (tab.loading) {
+      el.innerHTML += `<div class="tab-loading"></div>`;
+    } else if (tab.favicon) {
+      el.innerHTML += `<img class="tab-favicon" src="${tab.favicon}" onerror="this.style.display='none'" />`;
+    } else {
+      el.innerHTML += `<div class="tab-favicon-placeholder">⬡</div>`;
+    }
+
+    el.innerHTML += `<span class="tab-title">${escHtml(tab.title)}</span>`;
+    el.innerHTML += `<button class="tab-close" data-id="${tab.id}">✕</button>`;
+
+    el.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('tab-close')) switchTab(tab.id);
+    });
+    el.querySelector('.tab-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeTab(tab.id);
+    });
+
+    tabsContainer.appendChild(el);
+  });
+}
+
+function escHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Navigate ──────────────────────────────────────
+function navigate(input) {
+  input = input.trim();
+  let url;
+  if (/^https?:\/\//.test(input)) {
+    url = input;
+  } else if (/^[\w-]+(\.[a-z]{2,})(\/.*)?$/.test(input)) {
+    url = 'https://' + input;
+  } else {
+    url = 'https://www.google.com/search?q=' + encodeURIComponent(input);
+  }
+
+  const tab = tabs.find(t => t.id === activeTabId);
+  if (tab) {
+    tab.url = url;
+    tab.webview.src = url;
+    newTabPage.classList.add('hidden');
+  } else {
+    createTab(url);
+  }
+  urlBar.blur();
+}
+
+// ── Events ────────────────────────────────────────
+document.getElementById('new-tab-btn').addEventListener('click', () => {
+  createTab('');
+});
+
+urlBar.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') navigate(urlBar.value);
+  if (e.key === 'Escape') urlBar.blur();
+});
+urlBar.addEventListener('focus', () => urlBar.select());
+
+btnBack.addEventListener('click', () => {
+  tabs.find(t => t.id === activeTabId)?.webview?.goBack();
+});
+btnFwd.addEventListener('click', () => {
+  tabs.find(t => t.id === activeTabId)?.webview?.goForward();
+});
+btnReload.addEventListener('click', () => {
+  tabs.find(t => t.id === activeTabId)?.webview?.reload();
+});
+
+ntSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') navigate(ntSearch.value);
+});
+
+document.querySelectorAll('.nt-shortcut').forEach(el => {
+  el.addEventListener('click', () => navigate(el.dataset.url));
+});
+
+// Context menu
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  ctxMenu.style.left = e.clientX + 'px';
+  ctxMenu.style.top = e.clientY + 'px';
+  ctxMenu.classList.add('show');
+});
+document.addEventListener('click', () => ctxMenu.classList.remove('show'));
+
+document.getElementById('ctx-new-tab').addEventListener('click', () => createTab(''));
+document.getElementById('ctx-reload').addEventListener('click', () => {
+  tabs.find(t => t.id === activeTabId)?.webview?.reload();
+});
+document.getElementById('ctx-copy-url').addEventListener('click', () => {
+  const tab = tabs.find(t => t.id === activeTabId);
+  if (tab?.url) navigator.clipboard.writeText(tab.url);
+});
+
+// Window controls
+document.getElementById('btn-min').addEventListener('click', () => ipcRenderer.send('minimize-window'));
+document.getElementById('btn-max').addEventListener('click', () => ipcRenderer.send('maximize-window'));
+document.getElementById('btn-close').addEventListener('click', () => ipcRenderer.send('close-window'));
+
+// Open tab from main process
+ipcRenderer.on('open-tab', (_, url) => {
+  createTab(url);
+  switchTab(tabs[tabs.length - 1].id);
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 't') { e.preventDefault(); createTab(''); }
+  if (e.ctrlKey && e.key === 'w') { e.preventDefault(); if (activeTabId) closeTab(activeTabId); }
+  if (e.ctrlKey && e.key === 'l') { e.preventDefault(); urlBar.focus(); urlBar.select(); }
+  if (e.ctrlKey && e.key === 'r') { e.preventDefault(); tabs.find(t => t.id === activeTabId)?.webview?.reload(); }
+  if (e.ctrlKey && e.key === 'Tab') {
+    e.preventDefault();
+    const idx = tabs.findIndex(t => t.id === activeTabId);
+    if (idx !== -1) switchTab(tabs[(idx + 1) % tabs.length].id);
+  }
+});
+
+// ── Init ──────────────────────────────────────────
+createTab('');
+</script>
+</body>
+</html>

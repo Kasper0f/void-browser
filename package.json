@@ -1,0 +1,27 @@
+{
+  "name": "void-browser",
+  "version": "1.0.0",
+  "description": "VOID — кастомный браузер на Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.void.browser",
+    "productName": "VOID Browser",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
