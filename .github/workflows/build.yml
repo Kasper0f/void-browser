@@ -1,0 +1,43 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: temurin
+      - name: Install dependencies
+        run: npm install
+      - name: Install Capacitor
+        run: npm install @capacitor/core @capacitor/android @capacitor/cli
+      - name: Init Capacitor
+        run: npx cap init "VOID Browser" "com.void.browser" --web-dir .
+      - name: Add Android platform
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Add internet permission
+        run: |
+          sed -i 's|</manifest>|    <uses-permission android:name="android.permission.INTERNET"/>\n</manifest>|' android/app/src/main/AndroidManifest.xml
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: void-browser-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
