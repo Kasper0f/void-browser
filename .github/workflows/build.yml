@@ -38,7 +38,10 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --no-build-cache
+          rm -rf /home/runner/.gradle/caches
+          ./gradlew assembleDebug --no-daemon --no-build-cache --rerun-tasks
+        env:
+          JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
         env:
           JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
       - name: Upload APK artifact
