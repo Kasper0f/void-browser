@@ -1,6 +1,6 @@
 {
   "name": "void-browser",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "VOID — кастомный браузер на Electron",
   "main": "main.js",
   "scripts": {
